@@ -10,10 +10,6 @@ class CustomMediaRecorder {
     private var status = CurrentRecordingStatus.NONE
     
     private let settings = [
-        /*AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-        AVSampleRateKey: 44100,
-        AVNumberOfChannelsKey: 1,
-        AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue*/
         AVFormatIDKey: Int(kAudioFormatLinearPCM), // Changed to Linear PCM for WAV
         AVSampleRateKey: 44100,
         AVNumberOfChannelsKey: 1,
@@ -21,7 +17,7 @@ class CustomMediaRecorder {
         AVLinearPCMIsBigEndianKey: false,
         AVLinearPCMIsFloatKey: false,
         AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-    ]
+    ] as [String : Any]
     
     private func getDirectoryToSaveAudioFile() -> URL {
         return URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
