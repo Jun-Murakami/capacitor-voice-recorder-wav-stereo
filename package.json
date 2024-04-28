@@ -1,6 +1,6 @@
 {
   "name": "capacitor-voice-recorder-wav",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "Capacitor plugin for voice recording in wav format",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -65,7 +65,7 @@
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^1.1.2",
     "@typescript-eslint/eslint-plugin": "^7.7.1",
-    "eslint": "^9.1.1",
+    "eslint": "^8.57.0",
     "prettier": "~3.2.5",
     "prettier-plugin-java": "~2.6.0",
     "rimraf": "^5.0.5",
