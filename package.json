@@ -1,5 +1,5 @@
 {
-  "name": "capacitor-voice-recorder-wav",
+  "name": "capacitor-voice-recorder-wav-stereo",
   "version": "6.0.2",
   "description": "Capacitor plugin for voice recording in wav format",
   "main": "dist/plugin.cjs.js",
@@ -20,10 +20,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/scgscorp/capacitor-voice-recorder-wav.git"
+    "url": "git+https://github.com/Jun-Murakami/capacitor-voice-recorder-wav-stereo.git"
   },
   "bugs": {
-    "url": "https://github.com/scgscorp/capacitor-voice-recorder-wav/issues"
+    "url": "https://github.com/Jun-Murakami/capacitor-voice-recorder-wav-stereo/issues"
   },
   "keywords": [
     "capacitor",

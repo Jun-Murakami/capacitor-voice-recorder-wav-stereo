@@ -12,7 +12,7 @@ class CustomMediaRecorder {
     private let settings = [
         AVFormatIDKey: Int(kAudioFormatLinearPCM), // Changed to Linear PCM for WAV
         AVSampleRateKey: 44100,
-        AVNumberOfChannelsKey: 1,
+        AVNumberOfChannelsKey: 2, // Stereo
         AVLinearPCMBitDepthKey: 16, // Typical bit depth for WAV
         AVLinearPCMIsBigEndianKey: false,
         AVLinearPCMIsFloatKey: false,
