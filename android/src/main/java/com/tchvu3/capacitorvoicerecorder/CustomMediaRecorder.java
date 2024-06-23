@@ -27,8 +27,8 @@ public class CustomMediaRecorder {
 
         mediaRecorder.setAudioChannels(2); // Stereo
 
-        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.OGG);
-        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.VORBIS);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         
         mediaRecorder.setAudioEncodingBitRate(320000);
         mediaRecorder.setAudioSamplingRate(44100);
@@ -38,7 +38,7 @@ public class CustomMediaRecorder {
 
     private void setRecorderOutputFile() throws IOException {
         File outputDir = context.getCacheDir();
-        outputFile = File.createTempFile("voice_record_temp", ".ogg", outputDir);
+        outputFile = File.createTempFile("voice_record_temp", ".mp3", outputDir);
         outputFile.deleteOnExit();
         mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
     }
