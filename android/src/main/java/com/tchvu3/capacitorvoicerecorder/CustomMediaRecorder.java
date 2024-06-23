@@ -6,7 +6,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.util.Log;
-import android.media.AudioDeviceInfo;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -19,7 +18,6 @@ import java.nio.ByteOrder;
 public class CustomMediaRecorder {
 
     private final Context context;
-    private final AudioDeviceInfo usbMic;
     private AudioRecord audioRecord;
     private File outputFile;
     private CurrentRecordingStatus currentRecordingStatus = CurrentRecordingStatus.NONE;
@@ -27,28 +25,34 @@ public class CustomMediaRecorder {
     private boolean isRecording = false;
 
     private static final int SAMPLE_RATE = 44100;
+    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO;
+    private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
 
-    static {
-        System.loadLibrary("native-lib");
+    public CustomMediaRecorder(Context context) {
+        this.context = context;
     }
 
-    private native boolean startOboeRecording(int deviceId);
-    private native short[] getOboeRecordedData();
-    private native void stopOboeRecording();
-    private native boolean pauseOboeRecording();
-    private native boolean resumeOboeRecording();
+    public void initializeAudioRecord() throws IOException {
+        int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
+        try {
+            audioRecord = new AudioRecord(MediaRecorder.AudioSource.CAMCORDER, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, minBufferSize);
+        } catch (SecurityException e) {
+            throw new IOException("Missing permission to record audio", e);
+        }
+        setRecorderOutputFile();
+    }
 
-    public CustomMediaRecorder(Context context, AudioDeviceInfo usbMic) {
-        this.context = context;
-        this.usbMic = usbMic;
+    private void setRecorderOutputFile() throws IOException {
+        File outputDir = context.getCacheDir();
+        outputFile = File.createTempFile("voice_record_temp", ".wav", outputDir);
+        outputFile.deleteOnExit();
     }
 
     public void startRecording() throws IOException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!startOboeRecording(usbMic.getId())) {
-                throw new IOException("Failed to start Oboe recording");
-            }
+        if (audioRecord == null) {
+            initializeAudioRecord();
         }
+        audioRecord.startRecording();
         isRecording = true;
         currentRecordingStatus = CurrentRecordingStatus.RECORDING;
 
@@ -57,20 +61,14 @@ public class CustomMediaRecorder {
     }
 
     private void writeAudioDataToFile() {
+        byte[] data = new byte[AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)];
         FileOutputStream os = null;
         try {
             os = new FileOutputStream(outputFile);
             while (isRecording) {
-                short[] data = getOboeRecordedData();
-                if (data != null && data.length > 0) {
-                    byte[] byteData = new byte[data.length * 2];
-                    ByteBuffer.wrap(byteData).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(data);
-                    os.write(byteData);
-                }
-                try {
-                    Thread.sleep(100); // Adjust this value as needed
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                int read = audioRecord.read(data, 0, data.length);
+                if (AudioRecord.ERROR_INVALID_OPERATION != read) {
+                    os.write(data);
                 }
             }
         } catch (IOException e) {
@@ -87,9 +85,11 @@ public class CustomMediaRecorder {
     }
 
     public void stopRecording() {
-        if (isRecording) {
+        if (audioRecord != null) {
             isRecording = false;
-            stopOboeRecording();
+            audioRecord.stop();
+            audioRecord.release();
+            audioRecord = null;
             recordingThread = null;
             currentRecordingStatus = CurrentRecordingStatus.NONE;
             writeWavHeader();
@@ -149,13 +149,12 @@ public class CustomMediaRecorder {
         }
 
         if (currentRecordingStatus == CurrentRecordingStatus.RECORDING) {
-            if (pauseOboeRecording()) {
-                isRecording = false;
-                currentRecordingStatus = CurrentRecordingStatus.PAUSED;
-                return true;
-            }
+            isRecording = false;
+            currentRecordingStatus = CurrentRecordingStatus.PAUSED;
+            return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     public boolean resumeRecording() throws NotSupportedOsVersion {
@@ -164,13 +163,14 @@ public class CustomMediaRecorder {
         }
 
         if (currentRecordingStatus == CurrentRecordingStatus.PAUSED) {
-            if (resumeOboeRecording()) {
-                isRecording = true;
-                currentRecordingStatus = CurrentRecordingStatus.RECORDING;
-                return true;
-            }
+            isRecording = true;
+            currentRecordingStatus = CurrentRecordingStatus.RECORDING;
+            recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
+            recordingThread.start();
+            return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     public CurrentRecordingStatus getCurrentStatus() {
