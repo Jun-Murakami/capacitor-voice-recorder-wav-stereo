@@ -4,9 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.os.Build;
 import android.util.Base64;
-import android.media.AudioDeviceInfo;
 
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -83,28 +81,8 @@ public class VoiceRecorder extends Plugin {
         }
 
         try {
-            AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
-            AudioDeviceInfo[] devices = new AudioDeviceInfo[0];
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
-            }
-
-            AudioDeviceInfo usbMic = null;
-            for (AudioDeviceInfo device : devices) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (device.getType() == AudioDeviceInfo.TYPE_USB_DEVICE) {
-                        usbMic = device;
-                        break;
-                    }
-                }
-            }
-            
-            if (usbMic == null) {
-                call.reject(Messages.USB_MICROPHONE_NOT_FOUND);
-                return;
-            }
-
-            mediaRecorder = new CustomMediaRecorder(getContext(), usbMic);
+            mediaRecorder = new CustomMediaRecorder(getContext());
+            mediaRecorder.initializeAudioRecord();
             mediaRecorder.startRecording();
             call.resolve(ResponseGenerator.successResponse());
         } catch (IOException exp) {
