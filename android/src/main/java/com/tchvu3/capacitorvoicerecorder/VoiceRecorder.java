@@ -18,6 +18,8 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 @CapacitorPlugin(
         name = "VoiceRecorder",
@@ -80,8 +82,11 @@ public class VoiceRecorder extends Plugin {
 
         try {
             mediaRecorder = new CustomMediaRecorder(getContext());
+            mediaRecorder.initializeAudioRecord();
             mediaRecorder.startRecording();
             call.resolve(ResponseGenerator.successResponse());
+        } catch (IOException exp) {
+            call.reject(Messages.FAILED_TO_RECORD, exp);
         } catch (Exception exp) {
             call.reject(Messages.FAILED_TO_RECORD, exp);
         }
@@ -98,9 +103,9 @@ public class VoiceRecorder extends Plugin {
             mediaRecorder.stopRecording();
             File recordedFile = mediaRecorder.getOutputFile();
             RecordData recordData = new RecordData(
-                    readRecordedFileAsBase64(recordedFile),
-                    getMsDurationOfAudioFile(recordedFile.getAbsolutePath()),
-                    "audio/mp3"
+                    readWavFileAsBase64(recordedFile),
+                    getWavFileDuration(recordedFile),
+                    "audio/wav"
             );
             if (recordData.getRecordDataBase64() == null || recordData.getMsDuration() < 0) {
                 call.reject(Messages.EMPTY_RECORDING);
@@ -112,6 +117,30 @@ public class VoiceRecorder extends Plugin {
         } finally {
             mediaRecorder.deleteOutputFile();
             mediaRecorder = null;
+        }
+    }
+
+    private String readWavFileAsBase64(File wavFile) throws IOException {
+        byte[] bytes = new byte[(int) wavFile.length()];
+        try (FileInputStream fis = new FileInputStream(wavFile)) {
+            fis.read(bytes);
+        }
+        return Base64.encodeToString(bytes, Base64.DEFAULT);
+    }
+
+    private int getWavFileDuration(File wavFile) throws IOException {
+        try (FileInputStream fis = new FileInputStream(wavFile)) {
+            byte[] header = new byte[44];  // WAVヘッダーは通常44バイト
+            fis.read(header);
+            
+            // サンプルレートを取得（ヘッダーの24-27バイト目）
+            int sampleRate = ByteBuffer.wrap(header, 24, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            
+            // データサイズを取得（ヘッダーの40-43バイト目）
+            int dataSize = ByteBuffer.wrap(header, 40, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            
+            // 時間（ミリ秒）を計算
+            return (int) ((dataSize / (sampleRate * 2 * 2)) * 1000);  // 2チャンネル、16ビットを想定
         }
     }
 
