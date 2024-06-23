@@ -80,11 +80,8 @@ public class VoiceRecorder extends Plugin {
 
         try {
             mediaRecorder = new CustomMediaRecorder(getContext());
-            mediaRecorder.initializeAudioRecord();
             mediaRecorder.startRecording();
             call.resolve(ResponseGenerator.successResponse());
-        } catch (IOException exp) {
-            call.reject(Messages.FAILED_TO_RECORD, exp);
         } catch (Exception exp) {
             call.reject(Messages.FAILED_TO_RECORD, exp);
         }
@@ -103,13 +100,13 @@ public class VoiceRecorder extends Plugin {
             RecordData recordData = new RecordData(
                     readRecordedFileAsBase64(recordedFile),
                     getMsDurationOfAudioFile(recordedFile.getAbsolutePath()),
-                    "audio/wav"
+                    "audio/mp3"
             );
             if (recordData.getRecordDataBase64() == null || recordData.getMsDuration() < 0) {
-                        call.reject(Messages.EMPTY_RECORDING);
-                    } else {
-                        call.resolve(ResponseGenerator.dataResponse(recordData.toJSObject()));
-                    }
+                call.reject(Messages.EMPTY_RECORDING);
+            } else {
+                call.resolve(ResponseGenerator.dataResponse(recordData.toJSObject()));
+            }
         } catch (Exception exp) {
             call.reject(Messages.FAILED_TO_FETCH_RECORDING, exp);
         } finally {
