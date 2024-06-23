@@ -1,187 +1,239 @@
 package com.tchvu3.capacitorvoicerecorder;
 
+import android.Manifest;
 import android.content.Context;
-import android.media.AudioFormat;
-import android.media.AudioRecord;
-import android.media.MediaRecorder;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.Build;
-import android.util.Log;
+import android.util.Base64;
+import android.media.AudioDeviceInfo;
 
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+
+import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+@CapacitorPlugin(
+        name = "VoiceRecorder",
+        permissions = {@Permission(alias = VoiceRecorder.RECORD_AUDIO_ALIAS, strings = {Manifest.permission.RECORD_AUDIO})}
+)
+public class VoiceRecorder extends Plugin {
 
-public class CustomMediaRecorder {
+    static final String RECORD_AUDIO_ALIAS = "voice recording";
+    private CustomMediaRecorder mediaRecorder;
 
-    private final Context context;
-    private AudioRecord audioRecord;
-    private File outputFile;
-    private CurrentRecordingStatus currentRecordingStatus = CurrentRecordingStatus.NONE;
-    private Thread recordingThread;
-    private boolean isRecording = false;
-
-    private static final int SAMPLE_RATE = 44100;
-    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO;
-    private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
-
-    public CustomMediaRecorder(Context context) {
-        this.context = context;
-    }
-
-    public void initializeAudioRecord() throws IOException {
-        int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
-        try {
-            audioRecord = new AudioRecord(MediaRecorder.AudioSource.CAMCORDER, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, minBufferSize);
-        } catch (SecurityException e) {
-            throw new IOException("Missing permission to record audio", e);
+    @PluginMethod()
+    public void canDeviceVoiceRecord(PluginCall call) {
+        if (CustomMediaRecorder.canPhoneCreateMediaRecorder(getContext())) {
+            call.resolve(ResponseGenerator.successResponse());
+        } else {
+            call.resolve(ResponseGenerator.failResponse());
         }
-        setRecorderOutputFile();
     }
 
-    private void setRecorderOutputFile() throws IOException {
-        File outputDir = context.getCacheDir();
-        outputFile = File.createTempFile("voice_record_temp", ".wav", outputDir);
-        outputFile.deleteOnExit();
-    }
-
-    public void startRecording() throws IOException {
-        if (audioRecord == null) {
-            initializeAudioRecord();
+    @PluginMethod()
+    public void requestAudioRecordingPermission(PluginCall call) {
+        if (doesUserGaveAudioRecordingPermission()) {
+            call.resolve(ResponseGenerator.successResponse());
+        } else {
+            requestPermissionForAlias(RECORD_AUDIO_ALIAS, call, "recordAudioPermissionCallback");
         }
-        audioRecord.startRecording();
-        isRecording = true;
-        currentRecordingStatus = CurrentRecordingStatus.RECORDING;
-
-        recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
-        recordingThread.start();
     }
 
-    private void writeAudioDataToFile() {
-        byte[] data = new byte[AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)];
-        FileOutputStream os = null;
+    @PermissionCallback
+    private void recordAudioPermissionCallback(PluginCall call) {
+        this.hasAudioRecordingPermission(call);
+    }
+
+    @PluginMethod()
+    public void hasAudioRecordingPermission(PluginCall call) {
+        call.resolve(ResponseGenerator.fromBoolean(doesUserGaveAudioRecordingPermission()));
+    }
+
+    @PluginMethod()
+    public void startRecording(PluginCall call) {
+        if (!CustomMediaRecorder.canPhoneCreateMediaRecorder(getContext())) {
+            call.reject(Messages.CANNOT_RECORD_ON_THIS_PHONE);
+            return;
+        }
+
+        if (!doesUserGaveAudioRecordingPermission()) {
+            call.reject(Messages.MISSING_PERMISSION);
+            return;
+        }
+
+        if (this.isMicrophoneOccupied()) {
+            call.reject(Messages.MICROPHONE_BEING_USED);
+            return;
+        }
+
+        if (mediaRecorder != null) {
+            call.reject(Messages.ALREADY_RECORDING);
+            return;
+        }
+
         try {
-            os = new FileOutputStream(outputFile);
-            while (isRecording) {
-                int read = audioRecord.read(data, 0, data.length);
-                if (AudioRecord.ERROR_INVALID_OPERATION != read) {
-                    os.write(data);
+            AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            AudioDeviceInfo[] devices = new AudioDeviceInfo[0];
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
+            }
+
+            AudioDeviceInfo usbMic = null;
+            for (AudioDeviceInfo device : devices) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (device.getType() == AudioDeviceInfo.TYPE_USB_DEVICE) {
+                        usbMic = device;
+                        break;
+                    }
                 }
             }
-        } catch (IOException e) {
-            Log.e("CustomMediaRecorder", "Error writing audio data to file", e);
+            
+            if (usbMic == null) {
+                call.reject(Messages.USB_MICROPHONE_NOT_FOUND);
+                return;
+            }
+
+            mediaRecorder = new CustomMediaRecorder(getContext(), usbMic);
+            mediaRecorder.startRecording();
+            call.resolve(ResponseGenerator.successResponse());
+        } catch (IOException exp) {
+            call.reject(Messages.FAILED_TO_RECORD, exp);
+        } catch (Exception exp) {
+            call.reject(Messages.FAILED_TO_RECORD, exp);
+        }
+    }
+
+    @PluginMethod()
+    public void stopRecording(PluginCall call) {
+        if (mediaRecorder == null) {
+            call.reject(Messages.RECORDING_HAS_NOT_STARTED);
+            return;
+        }
+
+        try {
+            mediaRecorder.stopRecording();
+            File recordedFile = mediaRecorder.getOutputFile();
+            RecordData recordData = new RecordData(
+                    readWavFileAsBase64(recordedFile),
+                    getWavFileDuration(recordedFile),
+                    "audio/wav"
+            );
+            if (recordData.getRecordDataBase64() == null || recordData.getMsDuration() < 0) {
+                call.reject(Messages.EMPTY_RECORDING);
+            } else {
+                call.resolve(ResponseGenerator.dataResponse(recordData.toJSObject()));
+            }
+        } catch (Exception exp) {
+            call.reject(Messages.FAILED_TO_FETCH_RECORDING, exp);
         } finally {
-            try {
-                if (os != null) {
-                    os.close();
-                }
-            } catch (IOException e) {
-                Log.e("CustomMediaRecorder", "Error closing output stream", e);
-            }
+            mediaRecorder.deleteOutputFile();
+            mediaRecorder = null;
         }
     }
 
-    public void stopRecording() {
-        if (audioRecord != null) {
-            isRecording = false;
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
-            recordingThread = null;
-            currentRecordingStatus = CurrentRecordingStatus.NONE;
-            writeWavHeader();
+    private String readWavFileAsBase64(File wavFile) throws IOException {
+        byte[] bytes = new byte[(int) wavFile.length()];
+        try (FileInputStream fis = new FileInputStream(wavFile)) {
+            fis.read(bytes);
+        }
+        return Base64.encodeToString(bytes, Base64.DEFAULT);
+    }
+
+    private int getWavFileDuration(File wavFile) throws IOException {
+        try (FileInputStream fis = new FileInputStream(wavFile)) {
+            byte[] header = new byte[44];  // WAVヘッダーは通常44バイト
+            fis.read(header);
+            
+            // サンプルレートを取得（ヘッダーの24-27バイト目）
+            int sampleRate = ByteBuffer.wrap(header, 24, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            
+            // データサイズを取得（ヘッダーの40-43バイト目）
+            int dataSize = ByteBuffer.wrap(header, 40, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            
+            // 時間（ミリ秒）を計算
+            return (int) ((dataSize / (sampleRate * 2 * 2)) * 1000);  // 2チャンネル、16ビットを想定
         }
     }
 
-    private void writeWavHeader() {
+    @PluginMethod()
+    public void pauseRecording(PluginCall call) {
+        if (mediaRecorder == null) {
+            call.reject(Messages.RECORDING_HAS_NOT_STARTED);
+            return;
+        }
         try {
-            FileInputStream fis = new FileInputStream(outputFile);
-            byte[] audioData = new byte[(int) outputFile.length()];
-            int bytesRead = fis.read(audioData);
-            if (bytesRead < 0) {
-                Log.e("CustomMediaRecorder", "Error reading audio data from file");
-            } else if (bytesRead < audioData.length) {
-                Log.w("CustomMediaRecorder", "Audio data size mismatch");
-            }
-            fis.close();
-            byte[] header = createWavHeader(audioData.length);
-            FileOutputStream os = new FileOutputStream(outputFile);
-            os.write(header);
-            os.write(audioData);
-            os.close();
-        } catch (IOException e) {
-            Log.e("CustomMediaRecorder", "Error writing audio data to file", e);
+            call.resolve(ResponseGenerator.fromBoolean(mediaRecorder.pauseRecording()));
+        } catch (NotSupportedOsVersion exception) {
+            call.reject(Messages.NOT_SUPPORTED_OS_VERSION);
         }
     }
 
-    private byte[] createWavHeader(int audioLength) {
-        int totalLength = audioLength + 36;
-        byte[] header = new byte[44];
-        ByteBuffer buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN);
-
-        buffer.put("RIFF".getBytes());
-        buffer.putInt(totalLength);
-        buffer.put("WAVE".getBytes());
-        buffer.put("fmt ".getBytes());
-        buffer.putInt(16);
-        buffer.putShort((short) 1);
-        buffer.putShort((short) 2);
-        buffer.putInt(SAMPLE_RATE);
-        buffer.putInt(SAMPLE_RATE * 2 * 2);
-        buffer.putShort((short) 4);
-        buffer.putShort((short) 16);
-        buffer.put("data".getBytes());
-        buffer.putInt(audioLength);
-
-        return header;
-    }
-
-    public File getOutputFile() {
-        return outputFile;
-    }
-
-    public boolean pauseRecording() throws NotSupportedOsVersion {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            throw new NotSupportedOsVersion();
+    @PluginMethod()
+    public void resumeRecording(PluginCall call) {
+        if (mediaRecorder == null) {
+            call.reject(Messages.RECORDING_HAS_NOT_STARTED);
+            return;
         }
+        try {
+            call.resolve(ResponseGenerator.fromBoolean(mediaRecorder.resumeRecording()));
+        } catch (NotSupportedOsVersion exception) {
+            call.reject(Messages.NOT_SUPPORTED_OS_VERSION);
+        }
+    }
 
-        if (currentRecordingStatus == CurrentRecordingStatus.RECORDING) {
-            isRecording = false;
-            currentRecordingStatus = CurrentRecordingStatus.PAUSED;
-            return true;
+    @PluginMethod()
+    public void getCurrentStatus(PluginCall call) {
+        if (mediaRecorder == null) {
+            call.resolve(ResponseGenerator.statusResponse(CurrentRecordingStatus.NONE));
         } else {
-            return false;
+            call.resolve(ResponseGenerator.statusResponse(mediaRecorder.getCurrentStatus()));
         }
     }
 
-    public boolean resumeRecording() throws NotSupportedOsVersion {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            throw new NotSupportedOsVersion();
-        }
+    private boolean doesUserGaveAudioRecordingPermission() {
+        return getPermissionState(VoiceRecorder.RECORD_AUDIO_ALIAS).equals(PermissionState.GRANTED);
+    }
 
-        if (currentRecordingStatus == CurrentRecordingStatus.PAUSED) {
-            isRecording = true;
-            currentRecordingStatus = CurrentRecordingStatus.RECORDING;
-            recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
-            recordingThread.start();
+    private String readRecordedFileAsBase64(File recordedFile) {
+        BufferedInputStream bufferedInputStream;
+        byte[] bArray = new byte[(int) recordedFile.length()];
+        try {
+            bufferedInputStream = new BufferedInputStream(new FileInputStream(recordedFile));
+            bufferedInputStream.read(bArray);
+            bufferedInputStream.close();
+        } catch (IOException exp) {
+            return null;
+        }
+        return Base64.encodeToString(bArray, Base64.DEFAULT);
+    }
+
+    private int getMsDurationOfAudioFile(String recordedFilePath) {
+        try {
+            MediaPlayer mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(recordedFilePath);
+            mediaPlayer.prepare();
+            return mediaPlayer.getDuration();
+        } catch (Exception ignore) {
+            return -1;
+        }
+    }
+
+    private boolean isMicrophoneOccupied() {
+        AudioManager audioManager = (AudioManager) this.getContext().getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager == null)
             return true;
-        } else {
-            return false;
-        }
+        return audioManager.getMode() != AudioManager.MODE_NORMAL;
     }
 
-    public CurrentRecordingStatus getCurrentStatus() {
-        return currentRecordingStatus;
-    }
-
-    public boolean deleteOutputFile() {
-        return outputFile.delete();
-    }
-
-    public static boolean canPhoneCreateMediaRecorder(Context ignoredContext) {
-        return true;
-    }
 }
