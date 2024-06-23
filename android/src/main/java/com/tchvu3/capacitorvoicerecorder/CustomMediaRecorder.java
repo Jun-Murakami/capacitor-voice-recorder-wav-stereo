@@ -112,9 +112,6 @@ public class CustomMediaRecorder {
             os.write(header);
             os.write(audioData);
             os.close();
-            if (!deleteOutputFile()) {
-                Log.w("CustomMediaRecorder", "Failed to delete output file");
-            }
         } catch (IOException e) {
             Log.e("CustomMediaRecorder", "Error writing audio data to file", e);
         }
