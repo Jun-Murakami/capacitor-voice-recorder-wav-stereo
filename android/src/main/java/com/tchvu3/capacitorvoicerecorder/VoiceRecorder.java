@@ -110,8 +110,6 @@ public class VoiceRecorder extends Plugin {
                     } else {
                         call.resolve(ResponseGenerator.dataResponse(recordData.toJSObject()));
                     }
-        } catch (IOException exp) {
-            call.reject(Messages.FAILED_TO_FETCH_RECORDING, exp);
         } catch (Exception exp) {
             call.reject(Messages.FAILED_TO_FETCH_RECORDING, exp);
         } finally {

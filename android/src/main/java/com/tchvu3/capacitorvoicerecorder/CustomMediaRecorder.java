@@ -5,12 +5,15 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
 
 public class CustomMediaRecorder {
 
@@ -29,9 +32,13 @@ public class CustomMediaRecorder {
         this.context = context;
     }
 
-    private void initializeAudioRecord() throws IOException {
+    public void initializeAudioRecord() throws IOException {
         int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, minBufferSize);
+        try {
+            audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, minBufferSize);
+        } catch (SecurityException e) {
+            throw new IOException("Missing permission to record audio", e);
+        }
         setRecorderOutputFile();
     }
 
@@ -49,12 +56,7 @@ public class CustomMediaRecorder {
         isRecording = true;
         currentRecordingStatus = CurrentRecordingStatus.RECORDING;
 
-        recordingThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                writeAudioDataToFile();
-            }
-        }, "AudioRecorder Thread");
+        recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
         recordingThread.start();
     }
 
@@ -70,14 +72,14 @@ public class CustomMediaRecorder {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("CustomMediaRecorder", "Error writing audio data to file", e);
         } finally {
             try {
                 if (os != null) {
                     os.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e("CustomMediaRecorder", "Error closing output stream", e);
             }
         }
     }
@@ -96,14 +98,25 @@ public class CustomMediaRecorder {
 
     private void writeWavHeader() {
         try {
-            byte[] audioData = java.nio.file.Files.readAllBytes(outputFile.toPath());
+            FileInputStream fis = new FileInputStream(outputFile);
+            byte[] audioData = new byte[(int) outputFile.length()];
+            int bytesRead = fis.read(audioData);
+            if (bytesRead < 0) {
+                Log.e("CustomMediaRecorder", "Error reading audio data from file");
+            } else if (bytesRead < audioData.length) {
+                Log.w("CustomMediaRecorder", "Audio data size mismatch");
+            }
+            fis.close();
             byte[] header = createWavHeader(audioData.length);
             FileOutputStream os = new FileOutputStream(outputFile);
             os.write(header);
             os.write(audioData);
             os.close();
+            if (!deleteOutputFile()) {
+                Log.w("CustomMediaRecorder", "Failed to delete output file");
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("CustomMediaRecorder", "Error writing audio data to file", e);
         }
     }
 
@@ -155,12 +168,7 @@ public class CustomMediaRecorder {
         if (currentRecordingStatus == CurrentRecordingStatus.PAUSED) {
             isRecording = true;
             currentRecordingStatus = CurrentRecordingStatus.RECORDING;
-            recordingThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    writeAudioDataToFile();
-                }
-            }, "AudioRecorder Thread");
+            recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
             recordingThread.start();
             return true;
         } else {
@@ -176,7 +184,7 @@ public class CustomMediaRecorder {
         return outputFile.delete();
     }
 
-    public static boolean canPhoneCreateMediaRecorder(Context context) {
+    public static boolean canPhoneCreateMediaRecorder(Context ignoredContext) {
         return true;
     }
 }
