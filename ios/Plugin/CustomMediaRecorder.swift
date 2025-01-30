@@ -27,7 +27,7 @@ class CustomMediaRecorder {
         do {
             recordingSession = AVAudioSession.sharedInstance()
             originalRecordingSessionCategory = recordingSession.category
-            try recordingSession.setCategory(AVAudioSession.Category.playAndRecord)
+            try recordingSession.setCategory(AVAudioSession.Category.playAndRecord, options: [.allowBluetoothA2DP, .defaultToSpeaker])
             try recordingSession.setActive(true)
             audioFilePath = getDirectoryToSaveAudioFile().appendingPathComponent("\(UUID().uuidString).wav")
             audioRecorder = try AVAudioRecorder(url: audioFilePath, settings: settings)

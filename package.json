@@ -1,6 +1,6 @@
 {
   "name": "capacitor-voice-recorder-wav-stereo",
-  "version": "6.0.2",
+  "version": "7.0.0",
   "description": "Capacitor plugin for voice recording in wav format",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -56,22 +56,22 @@
     "get-blob-duration": "^1.2.0"
   },
   "devDependencies": {
-    "@capacitor/android": "^6.0.0",
-    "@capacitor/cli": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/docgen": "^0.2.2",
-    "@capacitor/ios": "^6.0.0",
-    "@ionic/eslint-config": "^0.3.0",
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/cli": "^7.0.1",
+    "@capacitor/core": "^7.0.1",
+    "@capacitor/docgen": "^0.3.0",
+    "@capacitor/ios": "^7.0.1",
+    "@ionic/eslint-config": "^0.4.0",
     "@ionic/prettier-config": "^4.0.0",
-    "@ionic/swiftlint-config": "^1.1.2",
-    "@typescript-eslint/eslint-plugin": "^7.7.1",
-    "eslint": "^8.57.0",
-    "prettier": "~3.2.5",
-    "prettier-plugin-java": "~2.6.0",
-    "rimraf": "^5.0.5",
-    "rollup": "^4.17.0",
-    "swiftlint": "^1.0.2",
-    "typescript": "5.4.5"
+    "@ionic/swiftlint-config": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "eslint": "^9.19.0",
+    "prettier": "~3.4.2",
+    "prettier-plugin-java": "~2.6.7",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.32.1",
+    "swiftlint": "^2.0.0",
+    "typescript": "5.7.3"
   },
   "peerDependencies": {
     "@capacitor/core": "^6.0.0"
