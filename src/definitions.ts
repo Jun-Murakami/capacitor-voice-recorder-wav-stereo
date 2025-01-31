@@ -16,21 +16,33 @@ export interface CurrentRecordingStatus {
   status: 'RECORDING' | 'PAUSED' | 'NONE';
 }
 
+export interface AudioDevice {
+  deviceId: string;
+  kind: MediaDeviceKind; // "audioinput" | "audiooutput"
+  label: string;
+  groupId: string | null;
+}
+
+export interface GetConnectedDevicesResult {
+  devices: AudioDevice[];
+}
+
 export interface VoiceRecorderPlugin {
-  canDeviceVoiceRecord (): Promise<GenericResponse>;
+  canDeviceVoiceRecord(): Promise<GenericResponse>;
 
-  requestAudioRecordingPermission (): Promise<GenericResponse>;
+  requestAudioRecordingPermission(): Promise<GenericResponse>;
 
-  hasAudioRecordingPermission (): Promise<GenericResponse>;
+  hasAudioRecordingPermission(): Promise<GenericResponse>;
 
-  startRecording (): Promise<GenericResponse>;
+  startRecording(): Promise<GenericResponse>;
 
-  stopRecording (): Promise<RecordingData>;
+  stopRecording(): Promise<RecordingData>;
 
-  pauseRecording (): Promise<GenericResponse>;
+  pauseRecording(): Promise<GenericResponse>;
 
-  resumeRecording (): Promise<GenericResponse>;
+  resumeRecording(): Promise<GenericResponse>;
 
-  getCurrentStatus (): Promise<CurrentRecordingStatus>;
+  getCurrentStatus(): Promise<CurrentRecordingStatus>;
 
+  getConnectedDevices(): Promise<{ devices: MediaDeviceInfo[] }>;
 }

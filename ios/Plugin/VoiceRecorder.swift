@@ -102,6 +102,55 @@ public class VoiceRecorder: CAPPlugin {
         }
     }
     
+    @objc func getConnectedDevices(_ call: CAPPluginCall) {
+        let audioSession = AVAudioSession.sharedInstance()
+        var devices = [[String: Any]]()
+        
+        // ロックを取得して状態変更を防ぐ
+        objc_sync_enter(audioSession)
+        defer { objc_sync_exit(audioSession) }
+        
+        do {
+            // 現在のルートを強制保持
+            let originalRoute = audioSession.currentRoute
+            print("Original Route: \(originalRoute)")
+            
+            // カテゴリ変更を完全に排除
+            let availableInputs = audioSession.availableInputs ?? []
+            for port in availableInputs {
+                devices.append([
+                    "deviceId": port.uid,
+                    "kind": "audioinput",
+                    "label": port.portName,
+                    "groupId": NSNull()
+                ])
+            }
+            
+            // 出力デバイスは現在のルートから取得（変更なし）
+            for port in originalRoute.outputs {
+                devices.append([
+                    "deviceId": port.uid,
+                    "kind": "audiooutput",
+                    "label": port.portName,
+                    "groupId": NSNull()
+                ])
+            }
+            
+            // ルート変更検知
+            if audioSession.currentRoute != originalRoute {
+                print("Route changed unexpectedly!")
+                print("New Route: \(audioSession.currentRoute)")
+                throw NSError(domain: "AudioSessionError", code: 1, userInfo: nil)
+            }
+            
+        } catch {
+            call.reject("Audio session conflict: \(error.localizedDescription)")
+            return
+        }
+        
+        call.resolve(["devices": devices])
+    }
+    
     func doesUserGaveAudioRecordingPermission() -> Bool {
         return AVAudioSession.sharedInstance().recordPermission == AVAudioSession.RecordPermission.granted
     }

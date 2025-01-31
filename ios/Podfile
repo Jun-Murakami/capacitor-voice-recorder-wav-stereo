@@ -14,3 +14,9 @@ end
 target 'PluginTests' do
   capacitor_pods
 end
+
+target 'App' do
+  capacitor_pods
+  pod 'AVKit'
+  pod 'AVFoundation'
+end
