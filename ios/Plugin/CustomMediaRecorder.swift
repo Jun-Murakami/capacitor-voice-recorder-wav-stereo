@@ -9,6 +9,9 @@ class CustomMediaRecorder {
     private var audioFilePath: URL!
     private var originalRecordingSessionCategory: AVAudioSession.Category!
     private var status = CurrentRecordingStatus.NONE
+    private var interruptionObserver: NSObjectProtocol?
+    var onInterruptionBegan: (() -> Void)?
+    var onInterruptionEnded: (() -> Void)?
 
     private let settings = [
         AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
@@ -48,6 +51,10 @@ class CustomMediaRecorder {
             try recordingSession.setActive(true)
             audioFilePath = getDirectoryToSaveAudioFile().appendingPathComponent("recording-\(Int(Date().timeIntervalSince1970 * 1000)).aac")
             audioRecorder = try AVAudioRecorder(url: audioFilePath, settings: settings)
+
+            // Subscribe to interruption notifications
+            setupInterruptionHandling()
+
             audioRecorder.record()
             status = CurrentRecordingStatus.RECORDING
             return true
@@ -58,6 +65,9 @@ class CustomMediaRecorder {
 
     func stopRecording() {
         do {
+            // Remove interruption observer
+            removeInterruptionHandling()
+
             audioRecorder.stop()
             try recordingSession.setActive(false)
             try recordingSession.setCategory(originalRecordingSessionCategory)
@@ -97,7 +107,7 @@ class CustomMediaRecorder {
     }
 
     func resumeRecording() -> Bool {
-        if status == CurrentRecordingStatus.PAUSED {
+        if status == CurrentRecordingStatus.PAUSED || status == CurrentRecordingStatus.INTERRUPTED {
             audioRecorder.record()
             status = CurrentRecordingStatus.RECORDING
             return true
@@ -108,6 +118,51 @@ class CustomMediaRecorder {
 
     func getCurrentStatus() -> CurrentRecordingStatus {
         return status
+    }
+
+    private func setupInterruptionHandling() {
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification: notification)
+        }
+    }
+
+    private func removeInterruptionHandling() {
+        if let observer = interruptionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            interruptionObserver = nil
+        }
+    }
+
+    private func handleInterruption(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let interruptionTypeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let interruptionType = AVAudioSession.InterruptionType(rawValue: interruptionTypeValue) else {
+            return
+        }
+
+        switch interruptionType {
+        case .began:
+            // Interruption began (e.g., phone call incoming)
+            if status == CurrentRecordingStatus.RECORDING {
+                audioRecorder.pause()
+                status = CurrentRecordingStatus.INTERRUPTED
+                onInterruptionBegan?()
+            }
+
+        case .ended:
+            // Interruption ended, but keep state as INTERRUPTED
+            // Let the user decide whether to resume or stop
+            if status == CurrentRecordingStatus.INTERRUPTED {
+                onInterruptionEnded?()
+            }
+
+        @unknown default:
+            break
+        }
     }
 
 }

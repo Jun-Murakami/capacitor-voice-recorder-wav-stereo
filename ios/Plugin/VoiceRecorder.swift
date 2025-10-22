@@ -42,6 +42,15 @@ public class VoiceRecorder: CAPPlugin {
             return
         }
 
+        // Set up interruption callbacks
+        customMediaRecorder?.onInterruptionBegan = { [weak self] in
+            self?.notifyListeners("voiceRecordingInterrupted", data: [:])
+        }
+
+        customMediaRecorder?.onInterruptionEnded = { [weak self] in
+            self?.notifyListeners("voiceRecordingInterruptionEnded", data: [:])
+        }
+
         let directory: String? = call.getString("directory")
         let subDirectory: String? = call.getString("subDirectory")
         let recordOptions = RecordOptions(directory: directory, subDirectory: subDirectory)

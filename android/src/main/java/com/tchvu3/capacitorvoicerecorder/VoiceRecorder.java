@@ -82,6 +82,16 @@ public class VoiceRecorder extends Plugin {
             String subDirectory = call.getString("subDirectory");
             RecordOptions options = new RecordOptions(directory, subDirectory);
             mediaRecorder = new CustomMediaRecorder(getContext(), options);
+
+            // Set up interruption callbacks
+            mediaRecorder.setOnInterruptionBegan(() -> {
+                notifyListeners("voiceRecordingInterrupted", null);
+            });
+
+            mediaRecorder.setOnInterruptionEnded(() -> {
+                notifyListeners("voiceRecordingInterruptionEnded", null);
+            });
+
             mediaRecorder.startRecording();
             call.resolve(ResponseGenerator.successResponse());
         } catch (Exception exp) {

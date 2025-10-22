@@ -25,6 +25,7 @@ export interface GenericResponse {
 export const RecordingStatus = {
   RECORDING: 'RECORDING',
   PAUSED: 'PAUSED',
+  INTERRUPTED: 'INTERRUPTED',
   NONE: 'NONE',
 } as const;
 
