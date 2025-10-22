@@ -185,7 +185,7 @@ class CustomMediaRecorder {
         case .began:
             // Interruption began (e.g., phone call incoming)
             if status == CurrentRecordingStatus.RECORDING {
-                audioRecorder.pause()
+                audioRecorder.stop()
                 status = CurrentRecordingStatus.INTERRUPTED
                 onInterruptionBegan?()
             }
