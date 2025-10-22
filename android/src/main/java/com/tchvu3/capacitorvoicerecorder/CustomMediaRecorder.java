@@ -136,6 +136,9 @@ public class CustomMediaRecorder implements AudioManager.OnAudioFocusChangeListe
         }
 
         if (currentRecordingStatus == CurrentRecordingStatus.PAUSED || currentRecordingStatus == CurrentRecordingStatus.INTERRUPTED) {
+            // Re-request audio focus before resuming to ensure we have proper audio access
+            requestAudioFocus();
+
             mediaRecorder.resume();
             currentRecordingStatus = CurrentRecordingStatus.RECORDING;
             return true;

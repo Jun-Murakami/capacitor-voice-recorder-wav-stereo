@@ -108,9 +108,15 @@ class CustomMediaRecorder {
 
     func resumeRecording() -> Bool {
         if status == CurrentRecordingStatus.PAUSED || status == CurrentRecordingStatus.INTERRUPTED {
-            audioRecorder.record()
-            status = CurrentRecordingStatus.RECORDING
-            return true
+            do {
+                // Ensure audio session is active before resuming
+                try recordingSession.setActive(true)
+                audioRecorder.record()
+                status = CurrentRecordingStatus.RECORDING
+                return true
+            } catch {
+                return false
+            }
         } else {
             return false
         }
