@@ -166,6 +166,7 @@ VoiceRecorder.stopRecording()
 | `RECORDING_HAS_NOT_STARTED` | No recording in progress.                            |
 | `EMPTY_RECORDING`           | Recording stopped immediately after starting.        |
 | `FAILED_TO_FETCH_RECORDING` | Unknown error occurred while fetching the recording. |
+| `FAILED_TO_MERGE_RECORDING` | Failed to merge audio segments after interruption (iOS only). |
 
 #### pauseRecording
 
@@ -265,6 +266,18 @@ VoiceRecorder.addListener('voiceRecordingInterruptionEnded', () => {
 | Web      | ❌ Not supported (maintains existing behavior) |
 
 **Note**: The `INTERRUPTED` state is distinct from `PAUSED`. `PAUSED` is user-initiated, while `INTERRUPTED` is system-initiated. Both states can be resumed using `resumeRecording()`.
+
+#### Technical Implementation (iOS)
+
+On iOS, the `AVAudioRecorder.record()` method internally calls `prepareToRecord()`, which overwrites the existing audio file. To preserve audio across interruptions, the plugin implements segmented recording:
+
+1. **Initial Recording**: Creates the base recording file (e.g., `recording-1234567890.aac`)
+2. **After Interruption**: When resuming from `INTERRUPTED` state, a new segment file is created (e.g., `recording-1234567891-segment-1.aac`)
+3. **Multiple Interruptions**: Each subsequent interruption creates additional numbered segments
+4. **Merging**: When `stopRecording()` is called, all segments are automatically merged into a single audio file using `AVMutableComposition` and `AVAssetExportSession`
+5. **Cleanup**: Temporary segment files are deleted after successful merge
+
+**Note**: Regular pause/resume (user-initiated) continues to use a single file without segmentation. Only system interruptions trigger segmented recording.
 
 ## Format and Mime type
 

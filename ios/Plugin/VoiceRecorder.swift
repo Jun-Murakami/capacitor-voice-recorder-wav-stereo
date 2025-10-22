@@ -69,7 +69,12 @@ public class VoiceRecorder: CAPPlugin {
             return
         }
 
-        customMediaRecorder?.stopRecording()
+        let stopSuccess = customMediaRecorder?.stopRecording() ?? false
+        if !stopSuccess {
+            customMediaRecorder = nil
+            call.reject(Messages.FAILED_TO_MERGE_RECORDING)
+            return
+        }
 
         let audioFileUrl = customMediaRecorder?.getOutputFile()
         if audioFileUrl == nil {
