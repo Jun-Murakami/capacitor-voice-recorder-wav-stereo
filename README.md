@@ -279,6 +279,8 @@ On iOS, the `AVAudioRecorder.record()` method internally calls `prepareToRecord(
 
 **Note**: Regular pause/resume (user-initiated) continues to use a single file without segmentation. Only system interruptions trigger segmented recording.
 
+**Format Change**: When audio interruptions occur and segments are merged, the final output file will be in M4A format (MIME type: `audio/mp4`) instead of AAC (MIME type: `audio/aac`). This is because AVAssetExportSession exports to M4A container format. Recordings without interruptions remain in AAC format.
+
 ## Format and Mime type
 
 The plugin will return the recording in one of several possible formats.

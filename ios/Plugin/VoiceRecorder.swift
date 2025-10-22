@@ -88,10 +88,14 @@ public class VoiceRecorder: CAPPlugin {
             path = subDirectory + "/" + path
         }
 
+        // Determine MIME type based on file extension
+        let fileExtension = audioFileUrl!.pathExtension.lowercased()
+        let mimeType = fileExtension == "m4a" ? "audio/mp4" : "audio/aac"
+
         let sendDataAsBase64 = customMediaRecorder?.options?.directory == nil
         let recordData = RecordData(
             recordDataBase64: sendDataAsBase64 ? readFileAsBase64(audioFileUrl) : nil,
-            mimeType: "audio/aac",
+            mimeType: mimeType,
             msDuration: getMsDurationOfAudioFile(audioFileUrl),
             path: sendDataAsBase64 ? nil : path
         )
