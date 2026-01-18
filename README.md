@@ -166,6 +166,7 @@ VoiceRecorder.stopRecording()
 | `RECORDING_HAS_NOT_STARTED` | No recording in progress.                            |
 | `EMPTY_RECORDING`           | Recording stopped immediately after starting.        |
 | `FAILED_TO_FETCH_RECORDING` | Unknown error occurred while fetching the recording. |
+| `FAILED_TO_MERGE_RECORDING` | Failed to merge audio segments after interruption (iOS only). |
 
 #### pauseRecording
 
@@ -189,7 +190,7 @@ VoiceRecorder.pauseRecording()
 
 #### resumeRecording
 
-Resumes a paused audio recording.
+Resumes a paused or interrupted audio recording.
 
 ```typescript
 VoiceRecorder.resumeRecording()
@@ -201,6 +202,8 @@ VoiceRecorder.resumeRecording()
 |--------------------|---------------------------------|
 | `{ value: true }`  | Recording resumed successfully. |
 | `{ value: false }` | Recording is already running.   |
+
+**Note**: This method works with both `PAUSED` (user-initiated) and `INTERRUPTED` (system-initiated) states.
 
 | Error Code                  | Description                                        |
 |-----------------------------|----------------------------------------------------|
@@ -217,11 +220,66 @@ VoiceRecorder.getCurrentStatus()
     .catch(error => console.log(error));
 ```
 
-| Status Code | Description                                          |
-|-------------|------------------------------------------------------|
-| `NONE`      | Plugin is idle and waiting to start a new recording. |
-| `RECORDING` | Plugin is currently recording.                       |
-| `PAUSED`    | Recording is paused.                                 |
+| Status Code   | Description                                              |
+|---------------|----------------------------------------------------------|
+| `NONE`        | Plugin is idle and waiting to start a new recording.     |
+| `RECORDING`   | Plugin is currently recording.                           |
+| `PAUSED`      | Recording is paused by user.                             |
+| `INTERRUPTED` | Recording was paused due to system interruption.         |
+
+### Audio Interruption Handling
+
+The plugin automatically handles audio interruptions on **iOS** and **Android** (such as phone calls, other apps using the microphone, or system notifications). When an interruption occurs, the recording is automatically paused and the state changes to `INTERRUPTED`.
+
+#### How It Works
+
+1. **Interruption Begins**: When a phone call comes in or another app takes audio focus, the plugin automatically pauses the recording and emits a `voiceRecordingInterrupted` event.
+
+2. **Interruption Ends**: When the interruption ends (e.g., phone call finishes), the plugin emits a `voiceRecordingInterruptionEnded` event, but keeps the state as `INTERRUPTED`.
+
+3. **User Decision**: The app can then decide whether to resume recording (using `resumeRecording()`) or stop it (using `stopRecording()`).
+
+#### Listening to Interruption Events
+
+```typescript
+import { VoiceRecorder } from 'capacitor-voice-recorder';
+
+// Listen for interruption events (iOS & Android only)
+VoiceRecorder.addListener('voiceRecordingInterrupted', () => {
+  console.log('Recording was interrupted (e.g., phone call)');
+  // Update UI to show interrupted state
+});
+
+VoiceRecorder.addListener('voiceRecordingInterruptionEnded', () => {
+  console.log('Interruption ended - recording is still paused');
+  // Optionally prompt user to resume or stop recording
+  // VoiceRecorder.resumeRecording() or VoiceRecorder.stopRecording()
+});
+```
+
+#### Platform Support
+
+| Platform | Interruption Handling |
+|----------|----------------------|
+| iOS      | ✅ Full support (AVAudioSession interruption notifications) |
+| Android  | ✅ Full support (AudioManager audio focus) |
+| Web      | ❌ Not supported (maintains existing behavior) |
+
+**Note**: The `INTERRUPTED` state is distinct from `PAUSED`. `PAUSED` is user-initiated, while `INTERRUPTED` is system-initiated. Both states can be resumed using `resumeRecording()`.
+
+#### Technical Implementation (iOS)
+
+On iOS, the `AVAudioRecorder.record()` method internally calls `prepareToRecord()`, which overwrites the existing audio file. To preserve audio across interruptions, the plugin implements segmented recording:
+
+1. **Initial Recording**: Creates the base recording file (e.g., `recording-1234567890.aac`)
+2. **After Interruption**: When resuming from `INTERRUPTED` state, a new segment file is created (e.g., `recording-1234567891-segment-1.aac`)
+3. **Multiple Interruptions**: Each subsequent interruption creates additional numbered segments
+4. **Merging**: When `stopRecording()` is called, all segments are automatically merged into a single audio file using `AVMutableComposition` and `AVAssetExportSession`
+5. **Cleanup**: Temporary segment files are deleted after successful merge
+
+**Note**: Regular pause/resume (user-initiated) continues to use a single file without segmentation. Only system interruptions trigger segmented recording.
+
+**Format Change**: When audio interruptions occur and segments are merged, the final output file will be in M4A format (MIME type: `audio/mp4`) instead of AAC (MIME type: `audio/aac`). This is because AVAssetExportSession exports to M4A container format. Recordings without interruptions remain in AAC format.
 
 ## Format and Mime type
 
@@ -243,6 +301,7 @@ As this plugin focuses on the recording aspect, it does not provide any conversi
 To play the recorded file, you can use plain JavaScript:
 
 ### With Base64 string
+
 ```typescript
 const base64Sound = '...' // from plugin
 const mimeType = '...'  // from plugin
@@ -252,6 +311,7 @@ audioRef.load()
 ```
 
 ### With Blob
+
 ```typescript
 import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
