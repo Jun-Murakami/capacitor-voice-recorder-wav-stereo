@@ -1,6 +1,6 @@
 {
   "name": "capacitor-voice-recorder-wav-stereo",
-  "version": "7.0.10",
+  "version": "8.0.0",
   "description": "Capacitor plugin for voice recording in wav format",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -44,7 +44,7 @@
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",
     "fmt": "npm run eslint -- --fix && npm run prettier -- --write && npm run swiftlint -- --fix --format",
     "eslint": "eslint . --ext ts",
-    "prettier": "prettier \"**/*.{css,html,ts,js,java}\"",
+    "prettier": "prettier \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
     "docgen": "docgen --api VoiceRecorderPlugin --output-readme README.md --output-json dist/docs.json",
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
@@ -53,28 +53,28 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "get-blob-duration": "^1.2.0"
+    "get-blob-duration": "^1.1.2"
   },
   "devDependencies": {
-    "@capacitor/android": "^7.0.1",
-    "@capacitor/cli": "^7.0.1",
-    "@capacitor/core": "^7.0.1",
-    "@capacitor/docgen": "^0.3.0",
-    "@capacitor/ios": "^7.0.1",
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/docgen": "^0.3.1",
+    "@capacitor/ios": "^8.0.2",
     "@ionic/eslint-config": "^0.4.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.24.1",
-    "eslint": "^9.21.0",
-    "prettier": "~3.5.2",
-    "prettier-plugin-java": "~2.6.7",
-    "rimraf": "^6.0.1",
-    "rollup": "^4.34.8",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.1",
+    "prettier-plugin-java": "^0.3.2",
+    "rimraf": "^6.1.2",
+    "rollup": "^4.57.1",
     "swiftlint": "^2.0.0",
-    "typescript": "5.7.3"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@capacitor/core": ">=6.0.0 <8.0.0"
+    "@capacitor/core": ">=8.0.0"
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",
