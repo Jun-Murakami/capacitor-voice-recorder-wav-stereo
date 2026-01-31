@@ -1,6 +1,6 @@
 {
   "name": "capacitor-voice-recorder-wav-stereo",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "Capacitor plugin for voice recording in wav format",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -74,7 +74,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@capacitor/core": ">=8.0.0"
+    "@capacitor/core": ">=6.0.0"
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",
